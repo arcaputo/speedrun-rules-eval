@@ -12,6 +12,9 @@ Deterministic, `qa_cap = 3`. Each broken rule becomes one line of critique for t
 | Compiler flags | An added line sets `torch._inductor.config`, `torch._dynamo.config` (other than cache limits), `mode=`/`options=`/`backend=` on `torch.compile`, `TORCHINDUCTOR_*`, `max_autotune` or `coordinate_descent_tuning` |
 | Final line | Nothing prints `step:{step}/{total} val_loss:… train_time:…ms` |
 
+For a subject with one record per folder (`<record>/train_gpt.py`), each folder is checked, and a candidate
+may change only one of them.
+
 Flags are checked only on lines the candidate added (`$HARNESS_CHANGES_FILE`), with comments ignored.
 On the base node only the tree is checked. Changing how the model computes its validation loss, such as
 masking infeasible tokens as #91 does, is the benchmark's business and is allowed.

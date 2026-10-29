@@ -51,10 +51,18 @@ TUNING = [
 
 def find_subject() -> Path:
     root = Path(os.environ.get("HARNESS_SUBJECTS_DIR") or Path(__file__).resolve().parent.parent.parent / "subjects")
-    found = sorted(p.parent for p in root.glob("*/train_gpt.py"))
+    found = sorted({p.parent for p in root.glob("*/train_gpt.py")} | {p.parent.parent for p in root.glob("*/*/train_gpt.py")})
     if not found:
-        raise SystemExit(f"no modded-nanogpt checkout (train_gpt.py) under {root}/<subject>/")
+        raise SystemExit(f"no modded-nanogpt checkout (train_gpt.py) under {root}/<subject>/ or {root}/<subject>/<record>/")
     return found[0]
+
+
+def record_roots(subject: Path) -> list[str]:
+    """The folders train_gpt.py runs from: the subject itself (""), or one folder per record when the subject
+    holds several (subject/<record>/train_gpt.py)."""
+    if (subject / "train_gpt.py").is_file():
+        return [""]
+    return sorted(p.parent.name for p in subject.glob("*/train_gpt.py"))
 
 
 def sources(subject: Path) -> dict[str, str]:
@@ -95,10 +103,20 @@ def main() -> None:
     problems: list[str] = []
     checks = 0
 
+    roots = record_roots(subject)
+    files = changed_files(diff)
+
     checks += 1
-    if "train_gpt.py" not in src:
-        problems.append("train_gpt.py is gone: the benchmark runs `torchrun --standalone --nproc_per_node=8 "
-                        "train_gpt.py`, so keep it as the entry point (it may import from other files).")
+    for r in roots:
+        if f"{r}/train_gpt.py".lstrip("/") not in src:
+            problems.append(f"{(r + '/') if r else ''}train_gpt.py is gone: the benchmark runs `torchrun --standalone "
+                            "--nproc_per_node=8 train_gpt.py`, so keep it as the entry point (it may import from other files).")
+    if roots != [""]:
+        checks += 1
+        touched = sorted({f.split("/", 1)[0] for f in files} & set(roots))
+        if len(touched) > 1:
+            problems.append(f"The candidate changed {', '.join(touched)}; an experiment implements one change in one "
+                            "record folder, so revert the others.")
 
     checks += 1
     sets = [(f, m.group(1).strip()) for f, text in src.items() for m in VAL_TOKENS_SET.finditer(text)]
@@ -116,7 +134,7 @@ def main() -> None:
                         "os.environ['DATA_PATH'] + '/data/fineweb10B/fineweb_{train,val}_*.bin', as the base does.")
 
     checks += 1
-    touched = sorted(f for f in changed_files(diff) if f.startswith("data/"))
+    touched = sorted(f for f in files if f.startswith("data/") or "/data/" in f"/{f}" and f.split("/", 1)[0] in roots)
     if touched:
         problems.append(f"The candidate changed {', '.join(touched)}; the data pipeline under data/ is fixed. "
                         "Revert those files.")

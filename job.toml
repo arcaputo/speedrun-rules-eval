@@ -1,0 +1,6 @@
+image = "python:3.12-slim"
+timeout_s = 600
+
+[resources]
+cpus = "2+"
+memory = "4+"

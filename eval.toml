@@ -1,0 +1,22 @@
+[eval]
+type = "qa"
+evaluator = "deterministic"
+entrypoint = "python qa.py"
+
+[eval.qa]
+qa_cap = 3
+
+[eval.pass]
+condition = "problems == 0"
+
+[eval.schema.problems]
+type = "int"
+description = "Speedrun rules the candidate breaks: val_tokens, the data pipeline, compiler flags, the entry point and its final log line"
+
+[eval.schema.checks]
+type = "int"
+description = "Rule checks run"
+
+[eval.schema.critique]
+type = "list[str]"
+description = "One line per broken rule, with what to change"
